@@ -24,10 +24,13 @@ def answer(req: Request):
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=[
-                {"role": "system", "content": "You are a helpful math assistant. When asked to add two numbers, respond exactly with 'The sum is X.' where X is the result, and nothing else."},
+                {
+                    "role": "system",
+                    "content": "You are a date extraction assistant. Extract ONLY the date from the given text. Return ONLY the date in format 'DD Month YYYY'. No extra text."
+                },
                 {"role": "user", "content": req.query}
             ]
         )
-        return {"output": response.choices[0].message.content}
+        return {"output": response.choices[0].message.content.strip()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
