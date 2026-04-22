@@ -21,48 +21,39 @@ def root():
 def deterministic_solver(query: str):
     q = query.lower()
 
-    matches = re.findall(r'([a-zA-Z]+)\s+scored\s+(\d+)', query, re.IGNORECASE)
-    if matches:
-        parsed = [(name, int(score)) for name, score in matches]
-        if "lowest" in q or "least" in q or "minimum" in q or "worst" in q:
-            return min(parsed, key=lambda x: x[1])[0]
-        if "highest" in q or "most" in q or "maximum" in q or "best" in q or "won" in q:
-            return max(parsed, key=lambda x: x[1])[0]
+    patterns = [
+        r'([a-zA-Z]+)\s+scored\s+([\d.]+)',
+        r'([a-zA-Z]+)\s+has\s+([\d.]+)',
+        r'([a-zA-Z]+)\s+got\s+([\d.]+)',
+        r'([a-zA-Z]+)\s*:\s*([\d.]+)',
+    ]
 
-    matches = re.findall(r'([a-zA-Z]+)\s+has\s+(\d+)', query, re.IGNORECASE)
-    if matches:
-        parsed = [(name, int(score)) for name, score in matches]
-        if "lowest" in q or "least" in q or "minimum" in q or "worst" in q:
-            return min(parsed, key=lambda x: x[1])[0]
-        if "highest" in q or "most" in q or "maximum" in q or "best" in q:
-            return max(parsed, key=lambda x: x[1])[0]
+    for pattern in patterns:
+        matches = re.findall(pattern, query, re.IGNORECASE)
+        if matches:
+            parsed = [(name, float(score)) for name, score in matches]
 
-    matches = re.findall(r'([a-zA-Z]+)\s*:\s*(\d+)', query, re.IGNORECASE)
-    if matches:
-        parsed = [(name, int(score)) for name, score in matches]
-        if "lowest" in q or "least" in q or "minimum" in q or "worst" in q:
-            return min(parsed, key=lambda x: x[1])[0]
-        if "highest" in q or "most" in q or "maximum" in q or "best" in q:
-            return max(parsed, key=lambda x: x[1])[0]
+            if "lowest" in q or "least" in q or "minimum" in q or "worst" in q:
+                target = min(parsed, key=lambda x: x[1])[1]
+                winners = [name for name, score in parsed if score == target]
+                if len(winners) > 1:
+                    return "Tie"
+                return winners[0]
 
-    matches = re.findall(r'([a-zA-Z]+)\s+got\s+(\d+)', query, re.IGNORECASE)
-    if matches:
-        parsed = [(name, int(score)) for name, score in matches]
-        if "lowest" in q or "least" in q or "minimum" in q or "worst" in q:
-            return min(parsed, key=lambda x: x[1])[0]
-        if "highest" in q or "most" in q or "maximum" in q or "best" in q:
-            return max(parsed, key=lambda x: x[1])[0]
+            if "highest" in q or "most" in q or "maximum" in q or "best" in q or "won" in q:
+                target = max(parsed, key=lambda x: x[1])[1]
+                winners = [name for name, score in parsed if score == target]
+                if len(winners) > 1:
+                    return "Tie"
+                return winners[0]
 
     return None
 
 def clean_output(text: str):
     if not text:
         return ""
-    text = text.strip()
-
-    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'[^\w\s]', '', text.strip())
     tokens = text.strip().split()
-
     return tokens[0] if tokens else ""
 
 @app.post("/v1/answer")
@@ -79,7 +70,7 @@ async def answer(req: Request):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an extremely concise assistant. Reply with ONLY the single word or number that directly answers the question. No sentences. No explanation. No punctuation. Just one word or number."
+                    "content": "You are an extremely concise assistant. Reply with ONLY the single word or number that directly answers the question. No sentences. No explanation. No punctuation. Just one word or number. If scores are equal reply with Tie."
                 },
                 {"role": "user", "content": query}
             ],
@@ -88,8 +79,7 @@ async def answer(req: Request):
         )
 
         raw = response.choices[0].message.content.strip()
-        final_output = clean_output(raw)
-        return {"output": final_output}
+        return {"output": clean_output(raw)}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
