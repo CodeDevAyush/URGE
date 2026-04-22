@@ -2,12 +2,19 @@ import os
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from groq import Groq
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
-CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY", "")
+client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
 
-SYSTEM_PROMPT = "You are an extremely precise assistant. Return ONLY the direct answer as a single word or number. No explanation, no punctuation, no extra text."
+SYSTEM_PROMPT = """You are a precise rule-following assistant.
+When given a number and a set of rules, apply EVERY rule in order step by step.
+Return ONLY the final output value — a number or a word like FIZZ.
+No explanation. No working. Just the final answer."""
 
 def security_scrub(query: str) -> str:
     return query
@@ -17,10 +24,10 @@ def format_output(text: str) -> str:
 
 async def fetch_context(assets: list) -> str:
     contents = []
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=10.0) as http:
         for url in assets:
             try:
-                resp = await client.get(url)
+                resp = await http.get(url)
                 if resp.status_code == 200:
                     contents.append(resp.text[:5000])
             except Exception:
@@ -43,36 +50,28 @@ async def answer(request: Request):
         # 2. Gather context
         context = await fetch_context(assets)
 
-        # 3. Build message with context
+        # 3. Build message
         user_message = clean_query
         if context:
             user_message = f"Context:\n{context}\n\nQuestion: {clean_query}"
 
-        # 4. Call Claude API
-        async with httpx.AsyncClient(timeout=30.0) as http:
-            response = await http.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": CLAUDE_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json"
-                },
-                json={
-                    "model": "claude-haiku-4-5-20251001",
-                    "max_tokens": 100,
-                    "system": SYSTEM_PROMPT,
-                    "messages": [
-                        {"role": "user", "content": user_message}
-                    ]
-                }
-            )
-            data = response.json()
-            result = data["content"][0]["text"]
+        # 4. Call Groq LLM
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_message}
+            ],
+            temperature=0.0,
+            max_tokens=50
+        )
+
+        result = response.choices[0].message.content
 
         return {"output": format_output(result)}
 
     except Exception as e:
-        return JSONResponse(status_code=500, content={"output": "Internal server error."})
+        return JSONResponse(status_code=500, content={"output": str(e)})
 
 @app.get("/health")
 async def health():
