@@ -23,7 +23,7 @@ def root():
 def answer(req: Request):
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="meta-llama/llama-3.3-70b-versatile",
             messages=[
                 {
                     "role": "system",
