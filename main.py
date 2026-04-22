@@ -26,7 +26,7 @@ def answer(req: Request):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a math assistant. When asked to sum even numbers, return ONLY the final number as output. No explanation, no extra text, just the number."
+                    "content": "You are a precise assistant. Answer with ONLY the name or number asked. No explanation, no punctuation, no extra text. Just the single word or number answer."
                 },
                 {"role": "user", "content": req.query}
             ]
