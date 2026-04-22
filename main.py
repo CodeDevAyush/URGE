@@ -50,14 +50,14 @@ def highest_score_solver(query: str):
         target = min(averages.values())
         winners = [name for name, avg in averages.items() if avg == target]
         if len(winners) > 1:
-            return "Both"
+            return "Equal"
         return winners[0]
 
     if is_highest:
         target = max(averages.values())
         winners = [name for name, avg in averages.items() if avg == target]
         if len(winners) > 1:
-            return "Both"
+            return "Equal"
         return winners[0]
 
     return None
@@ -83,7 +83,7 @@ def answer(req: Request):
 2. No explanation, no punctuation.
 3. If multiple scores per person, compute floor average then compare.
 4. Return the NAME of the person with highest/lowest average.
-5. If equal averages, return Both."""
+5. If equal averages, return Equal."""
                 },
                 {"role": "user", "content": query}
             ],
