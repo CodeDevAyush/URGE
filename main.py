@@ -48,14 +48,14 @@ def highest_score_solver(query: str):
         target = min(scores.values())
         winners = [name for name, s in scores.items() if s == target]
         if len(winners) > 1:
-            return " ".join(winners)  # Return both names
+            return "Equal"
         return winners[0]
 
     if is_highest:
         target = max(scores.values())
         winners = [name for name, s in scores.items() if s == target]
         if len(winners) > 1:
-            return " ".join(winners)  # Return both names
+            return "Equal"
         return winners[0]
 
     return None
