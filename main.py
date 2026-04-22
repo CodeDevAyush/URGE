@@ -1,5 +1,4 @@
 import os
-import re
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from groq import Groq
@@ -27,25 +26,36 @@ def answer(req: Request):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an extremely concise assistant. Reply with ONLY the single word or number that directly answers the question. No sentences. No explanation. No punctuation. Just one word or number. For example if asked 'Who scored highest?' reply only 'Bob'."
+                    "content": """You are an answer extraction assistant. 
+Rules you MUST follow:
+- Reply with ONLY the exact answer, nothing else
+- NO sentences, NO explanation, NO punctuation
+- NO words like 'The answer is' or 'Based on'
+- If answer is a name, return ONLY the name e.g. 'Bob'
+- If answer is a number, return ONLY the number e.g. '10'
+- If answer is yes/no, return ONLY 'YES' or 'NO'
+- If answer is a date, return ONLY the date e.g. '12 March 2024'
+- Maximum 3 words in response"""
                 },
-                {"role": "user", "content": req.query}
+                {
+                    "role": "user",
+                    "content": req.query
+                }
             ],
             temperature=0.0,
-            max_tokens=20
+            max_tokens=50
         )
 
-        raw = response.choices[0].message.content
-
-        raw = raw.strip()
-
-        raw = re.sub(r'[^\w\s]', '', raw)
-
-        words = raw.split()
-        if words:
-            result = words[0]
-        else:
-            result = raw
+        result = response.choices[0].message.content.strip()
+        
+        # Remove quotes if model adds them
+        result = result.replace('"', '').replace("'", '')
+        
+        # Remove common prefixes model might add
+        prefixes = ["Answer:", "Output:", "Result:", "The answer is", "Answer is"]
+        for prefix in prefixes:
+            if result.lower().startswith(prefix.lower()):
+                result = result[len(prefix):].strip()
 
         return {"output": result}
 
