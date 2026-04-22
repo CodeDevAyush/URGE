@@ -1,4 +1,5 @@
 import os
+import re
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from groq import Groq
@@ -31,10 +32,22 @@ def answer(req: Request):
                 {"role": "user", "content": req.query}
             ],
             temperature=0.0,
-            max_tokens=10
+            max_tokens=20
         )
-        result = response.choices[0].message.content.strip().split()[0]
-        result = result.replace(".", "").replace(",", "").replace("!", "").replace("?", "")
+
+        raw = response.choices[0].message.content
+
+        raw = raw.strip()
+
+        raw = re.sub(r'[^\w\s]', '', raw)
+
+        words = raw.split()
+        if words:
+            result = words[0]
+        else:
+            result = raw
+
         return {"output": result}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
