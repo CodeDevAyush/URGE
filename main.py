@@ -26,4 +26,11 @@ def answer(req: Request):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a precise assistant. Answer questions with only YES or NO in uppercase. No punctuation, no explanation, just YES or NO."
+                    "content": "Answer questions with only YES or NO in uppercase. No extra text."
+                },
+                {"role": "user", "content": req.query}
+            ]
+        )
+        return {"output": response.choices[0].message.content.strip()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
