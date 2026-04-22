@@ -1,6 +1,5 @@
 import os
 import re
-import math
 from collections import defaultdict
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -21,40 +20,47 @@ def root():
     return {"status": "running"}
 
 def highest_score_solver(query: str):
-    """Extract name-marks pairs and compute highest floor average"""
-    # Match patterns like "Alice 80", "Alice: 80", "Alice scored 80"
-    pairs = re.findall(r'([A-Za-z]+)[:\s]+scored\s+(\d+)|([A-Za-z]+)[:\s]+(\d+)', query)
+    q = query.lower()
 
-    entries = []
-    for match in pairs:
-        if match[0] and match[1]:
-            entries.append((match[0], int(match[1])))
-        elif match[2] and match[3]:
-            entries.append((match[2], int(match[3])))
+    # Match "Alice scored 80" or "Alice 80"
+    entries = re.findall(r'([A-Za-z]+)\s+scored\s+(\d+)', query, re.IGNORECASE)
 
     if not entries:
-        # Try simpler pattern: word followed by number
-        entries = re.findall(r'([A-Za-z]+)\s+(\d+)', query)
-        entries = [(name, int(score)) for name, score in entries
-                   if name.lower() not in ["scored", "got", "has", "with", "numbers", "sum", "level"]]
+        entries = re.findall(r'([A-Za-z]+)\s+(\d+)', query, re.IGNORECASE)
+        # Remove common words
+        skip = {"scored", "got", "has", "with", "numbers", "sum", "level", "who", "and"}
+        entries = [(name, score) for name, score in entries if name.lower() not in skip]
 
     if not entries:
         return None
 
-    # Aggregate per person
+    # Aggregate per person - floor average
     mp = defaultdict(lambda: [0, 0])
     for name, marks in entries:
-        mp[name][0] += marks
+        mp[name][0] += int(marks)
         mp[name][1] += 1
 
-    # Compute max floor average
-    max_avg = 0
-    for total, count in mp.values():
-        avg = total // count
-        if avg > max_avg:
-            max_avg = avg
+    # Compute floor average per person
+    averages = {name: total // count for name, (total, count) in mp.items()}
 
-    return str(max_avg)
+    is_lowest = any(w in q for w in ["lowest", "least", "minimum", "worst", "fewest"])
+    is_highest = any(w in q for w in ["highest", "most", "maximum", "best", "won", "winner", "top", "greater", "higher"])
+
+    if is_lowest:
+        target = min(averages.values())
+        winners = [name for name, avg in averages.items() if avg == target]
+        if len(winners) > 1:
+            return "Both"
+        return winners[0]
+
+    if is_highest:
+        target = max(averages.values())
+        winners = [name for name, avg in averages.items() if avg == target]
+        if len(winners) > 1:
+            return "Both"
+        return winners[0]
+
+    return None
 
 @app.post("/v1/answer")
 def answer(req: Request):
@@ -72,12 +78,12 @@ def answer(req: Request):
             messages=[
                 {
                     "role": "system",
-                    "content": """You are a precise math assistant. Follow these rules:
-1. Answer with ONLY a single number or word.
-2. No explanation, no punctuation, no extra text.
-3. If computing averages, use floor division (round down).
-4. If answer is float, floor it to nearest integer.
-5. Return only the final number or name."""
+                    "content": """You are a precise assistant. Rules:
+1. Return ONLY a single word or number.
+2. No explanation, no punctuation.
+3. If multiple scores per person, compute floor average then compare.
+4. Return the NAME of the person with highest/lowest average.
+5. If equal averages, return Both."""
                 },
                 {"role": "user", "content": query}
             ],
