@@ -26,11 +26,15 @@ def answer(req: Request):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a precise assistant. Answer with ONLY the name or number asked. No explanation, no punctuation, no extra text. Just the single word or number answer."
+                    "content": "You are an extremely concise assistant. Reply with ONLY the single word or number that directly answers the question. No sentences. No explanation. No punctuation. Just one word or number. For example if asked 'Who scored highest?' reply only 'Bob'."
                 },
                 {"role": "user", "content": req.query}
-            ]
+            ],
+            temperature=0.0,
+            max_tokens=10
         )
-        return {"output": response.choices[0].message.content.strip()}
+        result = response.choices[0].message.content.strip().split()[0]
+        result = result.replace(".", "").replace(",", "").replace("!", "").replace("?", "")
+        return {"output": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
