@@ -22,42 +22,40 @@ def root():
 def highest_score_solver(query: str):
     q = query.lower()
 
-    # Match "Alice scored 80" or "Alice 80"
     entries = re.findall(r'([A-Za-z]+)\s+scored\s+(\d+)', query, re.IGNORECASE)
-
     if not entries:
         entries = re.findall(r'([A-Za-z]+)\s+(\d+)', query, re.IGNORECASE)
-        # Remove common words
         skip = {"scored", "got", "has", "with", "numbers", "sum", "level", "who", "and"}
         entries = [(name, score) for name, score in entries if name.lower() not in skip]
 
     if not entries:
         return None
 
-    # Aggregate per person - floor average
-    mp = defaultdict(lambda: [0, 0])
-    for name, marks in entries:
-        mp[name][0] += int(marks)
-        mp[name][1] += 1
+    # Use MAX score per person
+    mp = defaultdict(float)
+    for name, score in entries:
+        val = float(score)
+        if val > mp[name]:
+            mp[name] = val
 
-    # Compute floor average per person
-    averages = {name: total // count for name, (total, count) in mp.items()}
+    # Floor the values
+    scores = {name: int(val) for name, val in mp.items()}
 
     is_lowest = any(w in q for w in ["lowest", "least", "minimum", "worst", "fewest"])
     is_highest = any(w in q for w in ["highest", "most", "maximum", "best", "won", "winner", "top", "greater", "higher"])
 
     if is_lowest:
-        target = min(averages.values())
-        winners = [name for name, avg in averages.items() if avg == target]
+        target = min(scores.values())
+        winners = [name for name, s in scores.items() if s == target]
         if len(winners) > 1:
-            return "Equal"
+            return " ".join(winners)  # Return both names
         return winners[0]
 
     if is_highest:
-        target = max(averages.values())
-        winners = [name for name, avg in averages.items() if avg == target]
+        target = max(scores.values())
+        winners = [name for name, s in scores.items() if s == target]
         if len(winners) > 1:
-            return "Equal"
+            return " ".join(winners)  # Return both names
         return winners[0]
 
     return None
@@ -67,12 +65,11 @@ def answer(req: Request):
     try:
         query = req.query.strip()
 
-        # Try deterministic solver first
         result = highest_score_solver(query)
         if result:
             return {"output": result}
 
-        # Fallback to LLM
+        # Fallback to LLM - FIXED MODEL
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=[
@@ -81,9 +78,9 @@ def answer(req: Request):
                     "content": """You are a precise assistant. Rules:
 1. Return ONLY a single word or number.
 2. No explanation, no punctuation.
-3. If multiple scores per person, compute floor average then compare.
-4. Return the NAME of the person with highest/lowest average.
-5. If equal averages, return Equal."""
+3. Use MAX score per person to compare.
+4. Return the NAME of the person with highest/lowest score.
+5. If equal scores, return both names separated by space."""
                 },
                 {"role": "user", "content": query}
             ],
