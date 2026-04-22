@@ -26,6 +26,8 @@ def deterministic_solver(query: str):
         r'([a-zA-Z]+)\s+has\s+([\d.]+)',
         r'([a-zA-Z]+)\s+got\s+([\d.]+)',
         r'([a-zA-Z]+)\s*:\s*([\d.]+)',
+        r'([a-zA-Z]+)\s+with\s+([\d.]+)',
+        r'([a-zA-Z]+)\s+earned\s+([\d.]+)',
     ]
 
     for pattern in patterns:
@@ -33,18 +35,21 @@ def deterministic_solver(query: str):
         if matches:
             parsed = [(name, float(score)) for name, score in matches]
 
-            if "lowest" in q or "least" in q or "minimum" in q or "worst" in q:
+            is_lowest = any(w in q for w in ["lowest", "least", "minimum", "worst", "fewest", "lower"])
+            is_highest = any(w in q for w in ["highest", "most", "maximum", "best", "won", "winner", "higher", "greater", "more", "top"])
+
+            if is_lowest:
                 target = min(parsed, key=lambda x: x[1])[1]
                 winners = [name for name, score in parsed if score == target]
                 if len(winners) > 1:
-                    return "Tie"
+                    return "All"
                 return winners[0]
 
-            if "highest" in q or "most" in q or "maximum" in q or "best" in q or "won" in q:
+            if is_highest:
                 target = max(parsed, key=lambda x: x[1])[1]
                 winners = [name for name, score in parsed if score == target]
                 if len(winners) > 1:
-                    return "Tie"
+                    return "All"
                 return winners[0]
 
     return None
@@ -70,7 +75,7 @@ async def answer(req: Request):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an extremely concise assistant. Reply with ONLY the single word or number that directly answers the question. No sentences. No explanation. No punctuation. Just one word or number. If scores are equal reply with Tie."
+                    "content": "You are an extremely concise assistant. Reply with ONLY the single word or number that directly answers the question. No sentences. No explanation. No punctuation. Just one word or number. If two people have equal scores reply with All."
                 },
                 {"role": "user", "content": query}
             ],
